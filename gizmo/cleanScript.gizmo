@@ -1,0 +1,24 @@
+set cut_paste_input [stack 0]
+version 14.1 v4
+push $cut_paste_input
+NoOp {
+ name cleanScript
+ knobChanged "n = nuke.thisNode()\nk = nuke.thisKnob()\nif k.name() == \"unusefull\":\n    if k.value() == 1:\n        n\[\"sources\"].setEnabled(True)\n    else:\n        n\[\"sources\"].setEnabled(False)\nelse:\n    None"
+ tile_color 0x7fffff
+ selected true
+ xpos -40
+ ypos -10
+ addUserKnob {20 User}
+ addUserKnob {26 description l "" +STARTLINE T "<b>Choose what you want to remove:</b>\n"}
+ addUserKnob {6 viewers l Viewers t "Removes all the viewers from the main comp ( The viewers in groups are delted by default)" +STARTLINE}
+ viewers true
+ addUserKnob {6 Disable l "Disabled nodes" +STARTLINE}
+ Disable true
+ addUserKnob {6 sources l Sources t "Removes Reads, Cameras, Groups, ReadGeo\n( Works only if \"Unusefull\" nodes is ticked)" +STARTLINE}
+ sources true
+ addUserKnob {22 clean l Clean! T cleanScript() +STARTLINE}
+ addUserKnob {26 ""}
+ addUserKnob {26 howitoworks l "" +STARTLINE T "<b>How it works:</b><br>\n- The bottom of every <i> usefull </i>  branches <u>needs to be connected <br>to a <b><font color=\"Yellow\">Write node</font></b></u> to be considered <i>usefull<i/>. <br>\n- the codes deletes all viewers nodes inside of groups by default.<br>\n- the code will keep nodes expression linked even <br>if they are in an <i>unusefull<i/> branch."}
+ addUserKnob {26 ""}
+ addUserKnob {26 _1 l "" +STARTLINE T "<i><font color='grey'>CleanScript v2.0 2024 Baptiste Audouin - https://baptiste-audouin.com/</font></i>\n"}
+}
