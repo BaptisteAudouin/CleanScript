@@ -1,4 +1,4 @@
-CleanScript - v002 - 2024
+CleanScript - v003- 2024
 
 Author: Baptiste Audouin  - baptiste-audouin.com
 Contact: baptiste.audouin.vfx@gmail.com
