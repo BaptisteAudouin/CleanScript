@@ -12,158 +12,154 @@ Description: Removes unnecessary nodes from a Nuke script. It gives the user 3 d
 import nuke
 
 #######################################################
-#################Script Clean#########################
+#################Script Clean##########################
+
 def cleanScript():
-	all_dependencies=[]
-	end_message="Nothing to Clean"
-	#node=nuke.toNode("cleanScript") ## dev's mode
-	node=nuke.thisNode()             ## user's mode
 
-	### Selection Mode Checker #####
+    ##### -- Variable prep -- #####
 
-	if len(nuke.selectedNodes()) >1:
-		Check = True
-		nodes = nuke.selectedNodes()
-	else:
-		nodes=nuke.allNodes()
-		Check = False
-		
-	##List of usefull Nodes ####
-	exeption=["Write","BackdropNode"]
-	if not node["sources"].value():
-		exeption.extend(["Read", "StickyNote", "ReadGeo2", "Camera2", "Group", "BackdropNode"])
+    ## Selection Mode or not?
+    if len(nuke.selectedNodes()) > 1:
+        Selected = True
+        nodes = nuke.selectedNodes()
+    else:
+        nodes=nuke.allNodes()
+        Selected = False
 
+    coreNode = nuke.toNode("cleanScript") ## dev mode
+    #coreNode = nuke.thisNode()           ## user mode
 
+    disableCount = 0
+    badNodeCount = 0
+    backdropsDeletedCount = 0
+    revealedLinkCount = 0
+    viewersDeletedCount = 0
 
+    globalCount=1 ## counts every node deleted
 
+    while globalCount>0: ## While Loop to make sure eveything is deleted
+        globalCount=0
 
-	##Delete all the Disable nodes  #####
-
-	if node["Disable"].value():
-		for i in nodes:
-		    try:
-		        if i["disable"].value():
-		            if i.Class() =="Write" and i.dependencies():
-		                None
-		            else:
-		                nuke.delete(i)
-		                end_message="Clean!"
-		                    
-
-		        if i.Class()=="Read" and i.error():
-		            nuke.delete(i)
-		            end_message="Clean!"
-		    except:
-		        None
-		        
-		        
-	##List of usefull alone Nodes ####
-
-	if len(nuke.selectedNodes()) >1:
-		Check = True
-		nodes = nuke.selectedNodes()
-	else:
-		nodes=nuke.allNodes()
-		Check = False
-		
-		
+        ##### -- Deletes Disabled Nodes -- #####
 
 
-	alone_node_protection=[]
+        if coreNode["Disable"].value():
+            for i in nodes:
+                try:
+                    if i["disable"].value() and not (i.Class() == "Write" and i.dependencies()):
+                        disableCount+=1
+                        globalCount+=1
+                        nodes.remove(i)
+                        nuke.delete(i)
+                except:
+                    pass
 
-	for i in nodes:
-		for j in i.dependencies():
-		    all_dependencies.append(j)
-	for i in nodes:
-		if not i.dependencies() and i not in all_dependencies:
-		    if i.Class() in exeption:
-		        alone_node_protection.append(i)
-		        
+        #### -- Deletes Viewer inside groups -- #####
 
-		    
-	##Delete viewer nodes inside of groups  #####
-
-	for i in nuke.allNodes():
-		if i.Class() == "Group":
-		    for j in nuke.allNodes(group = i):
-		        if j.Class() == "Viewer":
-		            nuke.delete(j)
-		            end_message="Clean!"
-		if node["viewers"].value() == True and i.Class() == "Viewer":
-		    nuke.delete(i)
-		    end_message="Clean!"
+        for i in nuke.allNodes("Group"):
+            for j in nuke.allNodes("Viewer", group = i):
+                nuke.delete(j)
 
 
-	## Variable prep   
+        ## Find the root Nodes  ( selection mode or Not)
+        rootNodesList=[]
+        for i in nodes:
+                if "Write" in i.Class() and i.dependencies():
+                    rootNodesList.append(i)
+        if Selected:
+            allDependencies = nuke.dependencies(nuke.allNodes())
+            SelectedDependencies = nuke.dependencies(nodes )
+            potentialRootNodes= set(nodes)-set(SelectedDependencies)
 
-	selected_nodes=nuke.selectedNodes()
-
-	bad_nodes=[0]
-
-
-	##Main code #########
-
-	while bad_nodes: ## needs to be iterated for as long as there is bad nodes
-		working_nodes=[node]
-		all_nodes=[]
-		bad_nodes=[]
-		exLinked_nodes=[]
-		
-		all_nodes = nuke.allNodes()
-		
-
-		for i in all_nodes: ## check if there is expression link links - if yes, removes it from dependencies - if no, continue with normal dependencies
-		    if i.dependencies(nuke.EXPRESSIONS):
-		        dependencies = set(i.dependencies()) - set(i.dependencies(nuke.EXPRESSIONS))
-		        for j in i.dependencies(nuke.EXPRESSIONS):
-		            exLinked_nodes.append(j)
-		    else: 
-		        dependencies = i.dependencies()
-		        
-		        
-		    
-		    for j in dependencies: ## make a list of node in use by other nodes
-		        if j not in working_nodes:
-		            working_nodes.append(j)
-		    if i.Class() == "Write" or i.Class() == "Viewer" or i in alone_node_protection : ## check if the "unused" node is either a Write or in the protected list - if YES count as a usefull node
-		        working_nodes.append(i)
-
-		for i in exLinked_nodes: ## add the dependencies of linked nodes to working node variable
-		    for j in i.dependencies():
-		        working_nodes.remove(j)
-		        
-		## Substract all the (selected) nodes by the nodes in use by other node to find the node that are not used anywhere
-		if Check == True:
-		    bad_nodes = (set(all_nodes) - set(working_nodes))- (set(all_nodes) - set(selected_nodes)) # selected Mode
-		else:
-		    bad_nodes = (set(all_nodes) - set(working_nodes)) ## all nodes Mode
-		    
-		bad_nodes = set(bad_nodes) - set(exLinked_nodes) ## makes sure expression linked nodes are not removed
-		
-		## delete the none usefull nodes
-		if bad_nodes:
-		    for i in bad_nodes:
-		        nuke.delete(i)
-		        end_message="Clean!"
-		    
-		
+            for i in potentialRootNodes:
+                if i in allDependencies:
+                    rootNodesList.append(i)
 
 
-	if len(nuke.selectedNodes()) >1:
-		nodes = nuke.selectedNodes()
-	else:
-		nodes=nuke.allNodes()
+
+        ##### -- Finds which are the un-useful nodes -- #####
 
 
-	for a in nodes:
-		if a.Class()== "BackdropNode":
-		    check = True
-		    for j in a.getNodes():
-		        if j.Class() != "Dot":
-		            check = False
-		    if check:
-		        nuke.delete(a)
-		        end_message="Clean!"
-		        
-		        
-	print (end_message)
+        usefulNodes = []
+        for i in rootNodesList:
+            Dependencies=[i]
+            ## CLimbs up the tree from roots nodes looking at dependencies of dependencies ... until there is no left.
+            while Dependencies:
+                usefulNodes.extend(nuke.dependencies( Dependencies, nuke.INPUTS | nuke.HIDDEN_INPUTS ))
+                Dependencies = nuke.dependencies( Dependencies, nuke.INPUTS | nuke.HIDDEN_INPUTS )
+        usefulNodes.extend(nuke.dependencies(nodes, nuke.EXPRESSIONS )) # adds expression linked nodes
+
+        usefulNodes.extend(rootNodesList)
+
+        badNodes = set(nodes) - set(usefulNodes)
+
+
+        ##### -- Deletes unwanted nodes-- #####
+
+        exeption = ["BackdropNode"]
+
+        if not coreNode["stickynotes"].value():
+            exeption.append("StickyNote")
+
+
+        for i in badNodes:
+            if i.Class() not in exeption and i != coreNode:
+                if not (not coreNode["sources"].value() and i.Class() == "Read"): ## checks if sources should be deleted or not
+                    if i.Class() != "Dot": ## count the nodes for display
+                        badNodeCount+=1
+                        globalCount += 1
+                    nodes.remove(i) # proofs potential addition
+                    nuke.delete(i)
+
+
+
+        for i in usefulNodes:
+
+            ## Reveales links
+            try:
+                if coreNode["revealLinks"].value() and i.knob("hide_input").value()== True:
+                    if not("Stamp" in i.name() and i.knob("title")): # Stamp module protection
+                        revealedLinkCount+=1
+                        globalCount += 1
+                        i.knob("hide_input").setValue(False)
+            except:
+                pass
+
+            #Deletes viewers
+            if i.Class() == "Viewer" and coreNode["viewers"]:
+                viewersDeletedCount+=1
+                globalCount += 1
+                nodes.remove(i) # proofs potential addition
+                nuke.delete(i)
+
+
+        for i in nodes:
+            #Deletes backdrop nodes if empty
+            try:
+                if i.Class()== "BackdropNode" and (not i.getNodes() or any(j.Class() == "StickyNote" for j in i.getNodes())):
+                    backdropsDeletedCount+=1
+                    globalCount += 1
+                    nodes.remove(i)# proofs potential addition
+                    nuke.delete(i)
+            except:
+                pass
+    ## End of While Loop
+
+    ##### -- End Message setup-- #####
+    
+    message =[]
+    message.append((" Nodes deleted ",badNodeCount))
+    message.append((" Disabled nodes deleted",disableCount))
+    message.append((" Backdrops deleted",backdropsDeletedCount))
+    message.append((" Revealed links",revealedLinkCount))
+    message.append((" Viewers deleted", viewersDeletedCount))
+
+
+    end_message=""
+    for i in message:
+        if i[1]>0:
+            end_message+="<b><font color='Yellow'>"+str(i[1])+"</font>"+i[0]+"</b><br>"
+    if end_message=="":
+        nuke.message("Nothing to Clean")
+    else:
+        nuke.message(end_message)
